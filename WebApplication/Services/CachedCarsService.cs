@@ -16,12 +16,12 @@ namespace WebApp.Services
 
         public IEnumerable<Car> Get(int rowsNumber = 20)
         {
-            return _dbContext.Cars.Take(rowsNumber).ToList();
+            return (IEnumerable<Car>)_dbContext.Cars.Take(rowsNumber).ToList();
         }
 
         public void Add(string cacheKey, int rowsNumber = 20)
         {
-            IEnumerable<Car> cars = _dbContext.Cars.Take(rowsNumber).ToList();
+            IEnumerable<Car> cars = (IEnumerable<Car>)_dbContext.Cars.Take(rowsNumber).ToList();
             if (cars != null)
             {
                 _memoryCache.Set(cacheKey, cars, new MemoryCacheEntryOptions
@@ -39,7 +39,7 @@ namespace WebApp.Services
             IEnumerable<Car> cars;
             if (!_memoryCache.TryGetValue(cacheKey, out cars))
             {
-                cars = _dbContext.Cars.Take(rowsNumber).ToList();
+                cars = (IEnumerable<Car>?)_dbContext.Cars.Take(rowsNumber).ToList();
                 if (cars != null)
                 {
                     _memoryCache.Set(cacheKey, cars,

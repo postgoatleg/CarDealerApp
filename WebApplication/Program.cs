@@ -1,28 +1,31 @@
 
 using ConsoleApp;
 using Microsoft.AspNetCore.Html;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.Tasks;
+using WebApp;
 using WebApp.Services;
+using Car = ConsoleApp.Car;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
-// внедрение зависимости для доступа к БД с использованием EF
+
 string connection = builder.Configuration.GetConnectionString("SqlServerConnection");
 services.AddDbContext<CarDealershipContext>(options => options.UseSqlServer(connection));
-// добавление кэширования
+
 services.AddMemoryCache();
 
-// добавление поддержки сессии
 services.AddDistributedMemoryCache();
-
 services.AddSession();
 
-// внедрение зависимости CachedTanksService
+
 services.AddScoped<ICachedService<Car>, CachedCarsService>();
 services.AddScoped<ICachedService<Employee>, CachedEmployersService>();
+
 var app = builder.Build();
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
@@ -39,32 +42,60 @@ app.Map("/", async (context) => await context.Response.WriteAsync(@"
 <link href='Styles/style.css' rel='stylesheet'/> 
 </HEAD>
 <BODY id='main-body'>
-<button type='button' onclick='location.href=""/cars"";'>Машины</button>
-<button type='button' onclick='location.href=""/emp"";'>Сотрудники</button>
+<button type='button' onclick='location.href=""/cars"";'>РњР°С€РёРЅС‹</button>
+<button type='button' onclick='location.href=""/emp"";'>РЎРѕС‚СЂСѓРґРЅРёРєРё</button>
+<button type='button' onclick='location.href=""/searchform1"";'>Р¤РѕСЂРјР° session</button>
 </BODY>"));
 app.Map("/cars", Cars);
 app.Map("/emp", Employers);
+app.Map("/searchform1", Forms);
 
-
-static void MainPage(IApplicationBuilder app)
+static void Forms(IApplicationBuilder app)
 {
-    app.Run(async (context) => { await context.Response.WriteAsync("<BR><A href='/cars'>Машины</A></BR>"); });
+    app.Run(async (context) =>
+    {
+        FirstForm form = context.Session.Get<FirstForm>("form1") ?? new FirstForm();
+
+        
+        string strResponse = "<HTML><HEAD><TITLE>РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ</TITLE></HEAD>" +
+        "<META http-equiv='Content-Type' content='text/html; charset=utf-8'/>" +
+        "<BODY><FORM action ='/searchform1' / >" +
+        "РРјСЏ:<BR><INPUT type = 'string' name = 'price' value = " + form.price + ">" +
+        //"<BR>Р¤Р°РјРёР»РёСЏ:<BR><INPUT type = 'text' name = 'LastName' value = " + form.LastName + " >" +
+        "<BR><BR><INPUT type ='submit' value='РЎРѕС…СЂР°РЅРёС‚СЊ РІ Session'><INPUT type ='submit' value='РџРѕРєР°Р·Р°С‚СЊ'></FORM>";
+        strResponse += "<BR><A href='/'>Р“Р»Р°РІРЅР°СЏ</A></BODY></HTML>";
+
+        int pr;
+        form.price = int.TryParse(context.Request.Query["price"].ToString(), out pr) ? pr : 1;
+        //user.LastName = context.Request.Query["LastName"];
+        context.Session.Set("form1", form);
+        
+
+        // РђСЃРёРЅС…СЂРѕРЅРЅС‹Р№ РІС‹РІРѕРґ РґРёРЅР°РјРёС‡РµСЃРєРѕР№ HTML С„РѕСЂРјС‹
+        await context.Response.WriteAsync(strResponse);
+    }
+    );
 }
+
+
+//static void MainPage(IApplicationBuilder app)
+//{
+//    app.Run(async (context) => { await context.Response.WriteAsync("<BR><A href='/cars'>РњР°С€РёРЅС‹</A></BR>"); });
+//}
 static void Cars(IApplicationBuilder app)
 {
     app.Run(async (context) =>
     {
-        //обращение к сервису
         ICachedService<Car> cachedCarsService = context.RequestServices.GetService<ICachedService<Car>>();
         IEnumerable<Car> cars = cachedCarsService.Get("cars20");
-        string HtmlString = "<HTML><HEAD><TITLE>Машины</TITLE>  <link href='Styles/style.css' rel='stylesheet'/> </HEAD>" +
+        string HtmlString = "<HTML><HEAD><TITLE>РњР°С€РёРЅС‹</TITLE>  <link href='Styles/style.css' rel='stylesheet'/> </HEAD>" +
         "<META http-equiv='Content-Type' content='text/html; charset=utf-8'/>" +
-        "<BODY><H1>Список машин</H1>" +
+        "<BODY><H1>РЎРїРёСЃРѕРє РјР°С€РёРЅ</H1>" +
         "<TABLE BORDER=1  class='table'>";
         HtmlString += "<TR>";
-        HtmlString += "<TH>Регистрационный номер</TH>";
-        HtmlString += "<TH>Цена</TH>";
-        HtmlString += "<TH>Год выпуска</TH>";
+        HtmlString += "<TH>СЂРµРіРёСЃС‚СЂР°С†РёРѕРЅРЅС‹Р№ РЅРѕРјРµСЂ</TH>";
+        HtmlString += "<TH>С†РµРЅР°</TH>";
+        HtmlString += "<TH>РіРѕРґ РІС‹РїСѓСЃРєР°</TH>";
         HtmlString += "</TR>";
         foreach (var car in cars)
         {
@@ -75,10 +106,9 @@ static void Cars(IApplicationBuilder app)
             HtmlString += "</TR>";
         }
         HtmlString += "</TABLE>";
-        HtmlString += "<BR><A href='/'>Главная</A></BR>";
+        HtmlString += "<BR><A href='/'>Р“Р»Р°РІРЅР°СЏ СЃС‚СЂР°РЅРёС†Р°</A></BR>";
         HtmlString += "</BODY></HTML>";
 
-        // Вывод данных
         await context.Response.WriteAsync(HtmlString);
     });
 }
@@ -88,19 +118,18 @@ static void Employers(IApplicationBuilder app)
     Position pos;
     app.Run(async (context) =>
     {
-        //обращение к сервису
         ICachedService<Employee> cachedEmpService = context.RequestServices.GetService<ICachedService<Employee>>();
         IEnumerable<Employee>? employers = cachedEmpService.Get();
-        string HtmlString = "<HTML><HEAD><TITLE>Сотрудники</TITLE>  <link href='Styles/style.css' rel='stylesheet'/> </HEAD>" +
+        string HtmlString = "<HTML><HEAD><TITLE>РЎРѕС‚СЂСѓРґРЅРёРєРё</TITLE>  <link href='Styles/style.css' rel='stylesheet'/> </HEAD>" +
         "<META http-equiv='Content-Type' content='text/html; charset=utf-8'/>" +
-        "<BODY><H1>Список сотрудников</H1>" +
+        "<BODY><H1>РЎРїРёСЃРѕРє СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ</H1>" +
         "<TABLE BORDER=1  class='table'>";
         HtmlString += "<TR>";
-        HtmlString += "<TH>Возраст</TH>";
-        HtmlString += "<TH>Имя</TH>";
-        HtmlString += "<TH>Фамилия</TH>";
-        HtmlString += "<TH>Должность</TH>";
-        HtmlString += "<TH>Зарплата</TH>";
+        HtmlString += "<TH>РІРѕР·СЂР°СЃС‚</TH>";
+        HtmlString += "<TH>РёРјСЏ</TH>";
+        HtmlString += "<TH>С„Р°РјРёР»РёСЏ</TH>";
+        HtmlString += "<TH>РґРѕР»Р¶РЅРѕСЃС‚СЊ</TH>";
+        HtmlString += "<TH>Р·Р°СЂРїР»Р°С‚Р°</TH>";
         HtmlString += "</TR>";
         foreach (var emp in employers)
         {
@@ -114,10 +143,9 @@ static void Employers(IApplicationBuilder app)
             HtmlString += "</TR>";
         }
         HtmlString += "</TABLE>";
-        HtmlString += "<BR><A href='/'>Главная</A></BR>";
+        HtmlString += "<BR><A href='/'>Р“Р»Р°РІРЅР°СЏ СЃС‚СЂР°РЅРёС†Р°</A></BR>";
         HtmlString += "</BODY></HTML>";
 
-        // Вывод данных
         await context.Response.WriteAsync(HtmlString);
     });
 }
@@ -127,15 +155,13 @@ app.Map("/info", (appBuilder) =>
 {
     appBuilder.Run(async (context) =>
     {
-        // Формирование строки для вывода 
-        string strResponse = "<HTML><HEAD><TITLE>Информация</TITLE></HEAD>" +
+        string strResponse = "<HTML><HEAD><TITLE>РРЅС„РѕСЂРјР°С†РёСЏ</TITLE></HEAD>" +
         "<META http-equiv='Content-Type' content='text/html; charset=utf-8'/>" +
-        "<BODY><H1>Информация:</H1>";
-        strResponse += "<BR> Сервер: " + context.Request.Host;
-        strResponse += "<BR> Путь: " + context.Request.PathBase;
-        strResponse += "<BR> Протокол: " + context.Request.Protocol;
-        strResponse += "<BR><A href='/'>Главная</A></BODY></HTML>";
-        // Вывод данных
+        "<BODY><H1>РРЅС„РѕСЂРјР°С†РёСЏ:</H1>";
+        strResponse += "<BR> С…РѕСЃС‚: " + context.Request.Host;
+        strResponse += "<BR> РїСѓС‚СЊ: " + context.Request.PathBase;
+        strResponse += "<BR> РїСЂРѕС‚РѕРєРѕР»: " + context.Request.Protocol;
+        strResponse += "<BR><A href='/'>Р“Р»Р°РІРЅР°СЏ СЃС‚СЂР°РЅРёС†Р°</A></BODY></HTML>";
         await context.Response.WriteAsync(strResponse);
     });
 });

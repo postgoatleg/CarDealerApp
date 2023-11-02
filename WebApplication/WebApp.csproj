@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(RunConfiguration)' == 'WebApplication' " />
   <ItemGroup>
     <ProjectReference Include="..\ConsoleApp\DbModels.csproj" />
   </ItemGroup>
